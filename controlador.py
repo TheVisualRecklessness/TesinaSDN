@@ -61,6 +61,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
 
         self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        #hm
 
         self.mac_to_port[dpid][src] = in_port
 
