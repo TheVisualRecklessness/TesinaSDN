@@ -56,9 +56,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if ip_pkt:
-            if ip_pkt.src in malicious_ips.keys():
-                self.logger.info("Malicious IP detected. Dropping packet.")
-                return
+            # if ip_pkt.src in malicious_ips.keys():
+            #     self.logger.info("Malicious IP detected. Dropping packet.")
+            #     return
         
             icmp_pkt = pkt.get_protocol(icmp.icmp)
             if icmp_pkt:
