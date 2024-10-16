@@ -50,7 +50,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-            if eth.src in malicious_macs.keys():
+        if eth.src in malicious_macs.keys():
             self.logger.info("Malicious MAC detected. Dropping packet.")
             return
         
