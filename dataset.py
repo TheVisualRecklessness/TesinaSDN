@@ -8,7 +8,7 @@ malicious_ports = {
 }
 
 malicious_ips = {
-    '10.0.0.3': True
+    '10.0.0.10': True
 }
 
 malicious_macs = {
