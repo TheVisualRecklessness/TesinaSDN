@@ -67,14 +67,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         if tcp_pkt:
-            if str(tcp_pkt.src_port) in malicious_ports.keys():
-                self.logger.info("Malicious TCP port detected. Dropping packet.")
+            if str(tcp_pkt.dst_port) in malicious_ports.keys():
+                self.logger.info(f'Malicious TCP port detected. Dropping packet. Port: {tcp_pkt.dst_port}')
                 return
         
         udp_pkt = pkt.get_protocol(udp.udp)
         if udp_pkt:
-            if str(udp_pkt.src_port) in malicious_ports.keys():
-                self.logger.info("Malicious UDP port detected. Dropping packet.")
+            if str(udp_pkt.dst_port) in malicious_ports.keys():
+                self.logger.info(f'Malicious UDP port detected. Dropping packet. Port: {udp_pkt.dst_port}')
                 return
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
