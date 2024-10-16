@@ -60,7 +60,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info(f'Switch: {dpid}, Src: {src}, Dst: {dst}, Puerto Entrada: {in_port}')
+        # self.logger.info(f'Switch: {dpid}, Src: {src}, Dst: {dst}, Puerto Entrada: {in_port}')
 
         self.mac_to_port[dpid][src] = in_port
 
@@ -86,3 +86,5 @@ class SimpleSwitch13(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
+        self.logger.info(f'Paquete con destino: {dst}, desde: {src}, puerto de entrada: {in_port}')
+        self.logger.info(f'Paquete enviado al puerto: {out_port}')
