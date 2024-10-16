@@ -3,7 +3,8 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp, icmp, tcp, udp
+from dataset import malicious_ports, malicious_ips, malicious_macs
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -49,14 +50,32 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        if eth.src == "AA:BB:CC:DD:EE:FF":
+        # Check for malicious MAC
+        if eth.src in self.malicious_macs:
             self.logger.info("Malicious MAC detected. Dropping packet.")
-            return 
+            return
 
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if ip_pkt:
-            if ip_pkt.src == "10.0.0.3":
+            if ip_pkt.src in self.malicious_ips:
                 self.logger.info("Malicious IP detected. Dropping packet.")
+                return
+
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            if icmp_pkt:
+                self.logger.info("ICMP packet detected. Dropping packet.")
+                return
+
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
+        if tcp_pkt:
+            if tcp_pkt.src_port in self.malicious_ports:
+                self.logger.info("Malicious TCP port detected. Dropping packet.")
+                return
+        
+        udp_pkt = pkt.get_protocol(udp.udp)
+        if udp_pkt:
+            if udp_pkt.src_port in self.malicious_ports:
+                self.logger.info("Malicious UDP port detected. Dropping packet.")
                 return
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
