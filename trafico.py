@@ -1,5 +1,8 @@
 import random
+import logging
 from scapy.all import IP, TCP, send
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 ip_range = ['10.0.0.1', '10.0.0.2']
 tcp_ports = [80, 443, 21, 22, 23, 25, 69, 109, 110, 119]
@@ -8,7 +11,11 @@ def generate_random_packet():
     dst_ip = random.choice(ip_range)
     dst_port = random.choice(tcp_ports)
     
-    packet = IP(src=src_ip, dst=dst_ip) / TCP(sport=src_port, dport=dst_port)
+    packet = IP(dst=dst_ip) / TCP(dport=dst_port)
+    
+    
+    logging.info(f'Enviando paquete: {packet.summary()}')
+    
     return packet
 
 for _ in range(10):
