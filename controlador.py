@@ -3,9 +3,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import ether_types
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -51,6 +49,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
+        if eth.src == "AA:BB:CC:DD:EE:FF":
+            self.logger.info("Malicious MAC detected. Dropping packet.")
+            return 
+
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        if ip_pkt:
+            if ip_pkt.src == "10.0.0.3":
+                self.logger.info("Malicious IP detected. Dropping packet.")
+                return
+
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
@@ -59,8 +67,6 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
-
-        # self.logger.info(f'Switch: {dpid}, Src: {src}, Dst: {dst}, Puerto Entrada: {in_port}')
 
         self.mac_to_port[dpid][src] = in_port
 
@@ -86,8 +92,3 @@ class SimpleSwitch13(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
-        self.logger.info(f'Paquete con destino: {dst}, desde: {src}, puerto de entrada: {in_port}')
-        if out_port != ofproto.OFPP_FLOOD:
-            self.logger.info(f'Paquete enviado al puerto: {out_port}')
-        else:
-            self.logger.info(f'Paquete enviado a todos los puertos')
