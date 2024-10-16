@@ -87,4 +87,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
         self.logger.info(f'Paquete con destino: {dst}, desde: {src}, puerto de entrada: {in_port}')
-        self.logger.info(f'Paquete enviado al puerto: {out_port}')
+        if out_port != ofproto.OFPP_FLOOD:
+            self.logger.info(f'Paquete enviado al puerto: {out_port}')
+        else:
+            self.logger.info(f'Paquete enviado a todos los puertos')
