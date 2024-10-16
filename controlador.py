@@ -50,31 +50,30 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        # Check for malicious MAC
-        if eth.src in self.malicious_macs:
+            if eth.src in malicious_macs.keys():
             self.logger.info("Malicious MAC detected. Dropping packet.")
             return
-
+        
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if ip_pkt:
-            if ip_pkt.src in self.malicious_ips:
+            if ip_pkt.src in malicious_ips.keys():
                 self.logger.info("Malicious IP detected. Dropping packet.")
                 return
-
+        
             icmp_pkt = pkt.get_protocol(icmp.icmp)
             if icmp_pkt:
                 self.logger.info("ICMP packet detected. Dropping packet.")
                 return
-
+        
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         if tcp_pkt:
-            if tcp_pkt.src_port in self.malicious_ports:
+            if str(tcp_pkt.src_port) in malicious_ports.keys():
                 self.logger.info("Malicious TCP port detected. Dropping packet.")
                 return
         
         udp_pkt = pkt.get_protocol(udp.udp)
         if udp_pkt:
-            if udp_pkt.src_port in self.malicious_ports:
+            if str(udp_pkt.src_port) in malicious_ports.keys():
                 self.logger.info("Malicious UDP port detected. Dropping packet.")
                 return
 
