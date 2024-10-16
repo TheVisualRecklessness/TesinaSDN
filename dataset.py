@@ -1,9 +1,10 @@
 malicious_ports = {
     '80': True,
     '443': True,
+    '20': True,
     '21': True,
-    '22': True,
-    '23': True
+    '23': True,
+    '107': True
 }
 
 malicious_ips = {
