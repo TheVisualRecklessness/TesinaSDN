@@ -43,7 +43,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         datapath.send_msg(mod)
 
         if SimpleSwitch13.packetsReceived >= 5:
-            self.send_flow_stats_request(datapath)
             self.logger.info(f'Paquetes bloqueados: {SimpleSwitch13.packetsDropped} de {SimpleSwitch13.packetsReceived}')
             if SimpleSwitch13.packetsDropped > 0:
                 self.logger.info(f'Paquetes exitosos: {(1-(SimpleSwitch13.packetsDropped/SimpleSwitch13.packetsReceived))*100}%')
@@ -140,6 +139,9 @@ class SimpleSwitch13(app_manager.RyuApp):
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
         self.logger.info(f'Packet sent to port {out_port} with TCP/UDP packet: {tlpkt}')
+
+        if SimpleSwitch13.packetsReceived >= 5:
+            self.send_flow_stats_request(datapath)
 
     def send_flow_stats_request(self, datapath):
         ofproto = datapath.ofproto
