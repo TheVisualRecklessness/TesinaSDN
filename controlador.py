@@ -61,8 +61,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        SimpleSwitch13.packetsReceived += 1
-
         if eth.src in malicious_macs.keys():
             self.logger.info("Malicious MAC detected. Dropping packet.")
             match = parser.OFPMatch(eth_src=eth.src)
@@ -89,6 +87,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         if tcp_pkt:
             tlpkt = tcp_pkt
+            SimpleSwitch13.packetsReceived += 1
             if str(tcp_pkt.dst_port) in malicious_ports.keys():
                 self.logger.info(f'Malicious TCP port detected. Dropping packet. Port: {tcp_pkt.dst_port}')
                 match = parser.OFPMatch(tcp_dst=tcp_pkt.dst_port)
@@ -99,6 +98,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         udp_pkt = pkt.get_protocol(udp.udp)
         if udp_pkt:
             tlpkt = udp_pkt
+            SimpleSwitch13.packetsReceived += 1
             if str(udp_pkt.dst_port) in malicious_ports.keys():
                 self.logger.info(f'Malicious UDP port detected. Dropping packet. Port: {udp_pkt.dst_port}')
                 match = parser.OFPMatch(udp_dst=udp_pkt.dst_port)
