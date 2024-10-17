@@ -139,41 +139,25 @@ class SimpleSwitch13(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def flow_stats_reply_handler(self, ev):
         body = ev.msg.body
-    
+
         self.logger.info('datapath         '
                          'in-port  eth-dst           '
-                         'out-port packets  bytes    '
-                         'src-port dst-port')
+                         'out-port packets  bytes')
         self.logger.info('---------------- '
                          '-------- ----------------- '
-                         '-------- -------- -------- '
-                         '-------- --------')
-        
+                         '-------- -------- --------')
+
         for stat in sorted([flow for flow in body if flow.priority == 1],
                            key=lambda flow: (flow.match['in_port'],
                                              flow.match['eth_dst'])):
-            
-            src_port = dst_port = 'N/A'
-            if 'ipv4_src' in stat.match and 'ipv4_dst' in stat.match:
-                pkt = packet.Packet(stat.match['ipv4_src'])
-                ip_pkt = pkt.get_protocol(ipv4.ipv4)
-                if ip_pkt:
-                    if ip_pkt.proto == inet.IPPROTO_TCP:
-                        tcp_pkt = pkt.get_protocol(tcp.tcp)
-                        if tcp_pkt:
-                            src_port = tcp_pkt.src_port
-                            dst_port = tcp_pkt.dst_port
-                    elif ip_pkt.proto == inet.IPPROTO_UDP:
-                        udp_pkt = pkt.get_protocol(udp.udp)
-                        if udp_pkt:
-                            src_port = udp_pkt.src_port
-                            dst_port = udp_pkt.dst_port
-    
-            self.logger.info('%016x %8x %17s %8x %8d %8d %8s %8s %s',
+            self.logger.info('%016x %8x %17s %8x %8d %8d',
                              ev.msg.datapath.id,
-                             stat.match['in_port'],
-                             stat.match['eth_dst'],
-                             stat.instructions[0].actions[0].port if stat.instructions else 'N/A',
-                             stat.packet_count, stat.byte_count,
-                             src_port, dst_port,
-                             ', '.join(actions))
+                             stat.match['in_port'], stat.match['eth_dst'],
+                             stat.instructions[0].actions[0].port,
+                             stat.packet_count, stat.byte_count)
+
+            # Extract destination transport layer port if available
+            if 'ipv4_dst' in stat.match:
+                ip_proto = stat.match.get('ip_proto')
+                if ip_proto == inet.IPPROTO_TCP:
+                    self.logger.info('TCP dst port: %d', stat.match.get('tcp_dst'))
