@@ -6,6 +6,9 @@ from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser, inet
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp, icmp, tcp, udp
 from dataset import malicious_ports, malicious_ips, malicious_macs
 
+packetsReceived = 0
+packetsDropped = 0
+
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -40,6 +43,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         datapath.send_msg(mod)
 
         self.send_flow_stats_request(datapath)
+        self.logger.info(f'Flow added with match: {match} and actions: {actions}')
+        self.logger.info(f'Paquetes bloqueados: {packetsDropped} de {packetsReceived}')
+        self.logger.info(f'Paquetes exitosos: {(packetsReceived/packetsDropped)*100}%')
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -54,11 +60,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
+        packetsReceived += 1
+
 
         if eth.src in malicious_macs.keys():
             self.logger.info("Malicious MAC detected. Dropping packet.")
             match = parser.OFPMatch(eth_src=eth.src)
             self.add_flow(datapath, 1, match, [])
+            packetsDropped += 1
             return
         
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
@@ -67,6 +76,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             #     self.logger.info("Malicious IP detected. Dropping packet.")
             #     match = parser.OFPMatch(ipv4_src=ip_pkt.src)
             #     self.add_flow(datapath, 1, match, [])
+            #     packetsDropped += 1
             #     return
         
             icmp_pkt = pkt.get_protocol(icmp.icmp)
@@ -83,6 +93,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info(f'Malicious TCP port detected. Dropping packet. Port: {tcp_pkt.dst_port}')
                 match = parser.OFPMatch(tcp_dst=tcp_pkt.dst_port)
                 self.add_flow(datapath, 1, match, [])
+                pacletsDropped += 1
                 return
         
         udp_pkt = pkt.get_protocol(udp.udp)
@@ -92,6 +103,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info(f'Malicious UDP port detected. Dropping packet. Port: {udp_pkt.dst_port}')
                 match = parser.OFPMatch(udp_dst=udp_pkt.dst_port)
                 self.add_flow(datapath, 1, match, [])
+                packetsDropped += 1
                 return
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
