@@ -28,6 +28,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.add_flow(datapath, 0, match, actions)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        global packetsReceived, packetsDropped
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -49,6 +50,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        global packetsReceived, packetsDropped
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
