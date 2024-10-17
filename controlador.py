@@ -41,7 +41,6 @@ class SimpleSwitch13(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
-        self.logger.info(f'Flow added with match: {match} and actions: {actions}')
 
         if SimpleSwitch13.packetsReceived >= 5:
             self.send_flow_stats_request(datapath)
