@@ -41,12 +41,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
-
-        self.send_flow_stats_request(datapath)
         self.logger.info(f'Flow added with match: {match} and actions: {actions}')
-        self.logger.info(f'Paquetes bloqueados: {SimpleSwitch13.packetsDropped} de {SimpleSwitch13.packetsReceived}')
-        if SimpleSwitch13.packetsDropped > 0:
-            self.logger.info(f'Paquetes exitosos: {(1-(SimpleSwitch13.packetsDropped/SimpleSwitch13.packetsReceived))*100}%')
+
+        if SimpleSwitch13.packetsReceived >= 5:
+            self.send_flow_stats_request(datapath)
+            self.logger.info(f'Paquetes bloqueados: {SimpleSwitch13.packetsDropped} de {SimpleSwitch13.packetsReceived}')
+            if SimpleSwitch13.packetsDropped > 0:
+                self.logger.info(f'Paquetes exitosos: {(1-(SimpleSwitch13.packetsDropped/SimpleSwitch13.packetsReceived))*100}%')
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
