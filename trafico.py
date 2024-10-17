@@ -24,6 +24,6 @@ def generate_random_packet():
     
     return packet
 
-for _ in range(10):
+for _ in range(5):
     packet = generate_random_packet()
     send(packet)
