@@ -46,7 +46,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info(f'Flow added with match: {match} and actions: {actions}')
         self.logger.info(f'Paquetes bloqueados: {SimpleSwitch13.packetsDropped} de {SimpleSwitch13.packetsReceived}')
         if SimpleSwitch13.packetsDropped > 0:
-            self.logger.info(f'Paquetes exitosos: {(SimpleSwitch13.packetsReceived/SimpleSwitch13.packetsDropped)*100}%')
+            self.logger.info(f'Paquetes exitosos: {((SimpleSwitch13.packetsDropped/SimpleSwitch13.packetsReceived)-1)*100}%')
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
