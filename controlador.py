@@ -87,6 +87,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         if tcp_pkt:
             tlpkt = tcp_pkt
             SimpleSwitch13.packetsReceived += 1
+            self.logger.info(f'paquete {SimpleSwitch13.packetsReceived} recibido')
             if str(tcp_pkt.dst_port) in malicious_ports.keys():
                 self.logger.info(f'Malicious TCP port detected. Dropping packet. Port: {tcp_pkt.dst_port}')
                 match = parser.OFPMatch(tcp_dst=tcp_pkt.dst_port)
@@ -97,6 +98,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         udp_pkt = pkt.get_protocol(udp.udp)
         if udp_pkt:
             tlpkt = udp_pkt
+            self.logger.info(f'paquete {SimpleSwitch13.packetsReceived} recibido')
             SimpleSwitch13.packetsReceived += 1
             if str(udp_pkt.dst_port) in malicious_ports.keys():
                 self.logger.info(f'Malicious UDP port detected. Dropping packet. Port: {udp_pkt.dst_port}')
