@@ -148,8 +148,10 @@ class SimpleSwitch13(app_manager.RyuApp):
                          '-------- ----------------- '
                          '-------- -------- -------- '
                          '-------- --------')
-        for stat in sorted([flow for flow in body], key=lambda flow: (flow.match['in_port'], flow.match['eth_dst'])):
-            actions = [str(action) for action in stat.instructions]
+        
+        for stat in sorted([flow for flow in body if flow.priority == 1],
+                           key=lambda flow: (flow.match['in_port'],
+                                             flow.match['eth_dst'])):
             
             src_port = dst_port = 'N/A'
             if 'ipv4_src' in stat.match and 'ipv4_dst' in stat.match:
