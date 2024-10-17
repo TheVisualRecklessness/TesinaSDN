@@ -57,17 +57,23 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         if eth.src in malicious_macs.keys():
             self.logger.info("Malicious MAC detected. Dropping packet.")
+            match = parser.OFPMatch(eth_src=eth.src)
+            self.add_flow(datapath, 1, match, [])
             return
         
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if ip_pkt:
             # if ip_pkt.src in malicious_ips.keys():
             #     self.logger.info("Malicious IP detected. Dropping packet.")
+            #     match = parser.OFPMatch(ipv4_src=ip_pkt.src)
+            #     self.add_flow(datapath, 1, match, [])
             #     return
         
             icmp_pkt = pkt.get_protocol(icmp.icmp)
             if icmp_pkt:
                 self.logger.info("ICMP packet detected. Dropping packet.")
+                match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, ip_proto=1)
+                self.add_flow(datapath, 1, match, [])
                 return
         
         tcp_pkt = pkt.get_protocol(tcp.tcp)
@@ -75,6 +81,8 @@ class SimpleSwitch13(app_manager.RyuApp):
             tlpkt = tcp_pkt
             if str(tcp_pkt.dst_port) in malicious_ports.keys():
                 self.logger.info(f'Malicious TCP port detected. Dropping packet. Port: {tcp_pkt.dst_port}')
+                match = parser.OFPMatch(tcp_dst=tcp_pkt.dst_port)
+                self.add_flow(datapath, 1, match, [])
                 return
         
         udp_pkt = pkt.get_protocol(udp.udp)
@@ -82,6 +90,8 @@ class SimpleSwitch13(app_manager.RyuApp):
             tlpkt = udp_pkt
             if str(udp_pkt.dst_port) in malicious_ports.keys():
                 self.logger.info(f'Malicious UDP port detected. Dropping packet. Port: {udp_pkt.dst_port}')
+                match = parser.OFPMatch(udp_dst=udp_pkt.dst_port)
+                self.add_flow(datapath, 1, match, [])
                 return
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
@@ -155,3 +165,4 @@ class SimpleSwitch13(app_manager.RyuApp):
                                      action.port, 'OUTPUT',
                                      stat.packet_count, stat.byte_count,
                                      dst_port if dst_port else 'N/A')
+                    
