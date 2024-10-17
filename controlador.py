@@ -6,12 +6,12 @@ from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser, inet
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp, icmp, tcp, udp
 from dataset import malicious_ports, malicious_ips, malicious_macs
 
-packetsReceived = 0
-packetsDropped = 0
-
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
+    packetsReceived = 0
+    packetsDropped = 0
+    
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
@@ -28,7 +28,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.add_flow(datapath, 0, match, actions)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-        global packetsReceived, packetsDropped
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -45,41 +44,40 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         self.send_flow_stats_request(datapath)
         self.logger.info(f'Flow added with match: {match} and actions: {actions}')
-        self.logger.info(f'Paquetes bloqueados: {packetsDropped} de {packetsReceived}')
-        self.logger.info(f'Paquetes exitosos: {(packetsReceived/packetsDropped)*100}%')
+        self.logger.info(f'Paquetes bloqueados: {SimpleSwitch13.packetsDropped} de {SimpleSwitch13.packetsReceived}')
+        if SimpleSwitch13.packetsDropped > 0:
+            self.logger.info(f'Paquetes exitosos: {(SimpleSwitch13.packetsReceived/SimpleSwitch13.packetsDropped)*100}%')
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        global packetsReceived, packetsDropped
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
 
-        tlpkt = 0
+        tlpkt = None
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        packetsReceived += 1
-
+        SimpleSwitch13.packetsReceived += 1
 
         if eth.src in malicious_macs.keys():
             self.logger.info("Malicious MAC detected. Dropping packet.")
             match = parser.OFPMatch(eth_src=eth.src)
             self.add_flow(datapath, 1, match, [])
-            packetsDropped += 1
+            SimpleSwitch13.packetsDropped += 1
             return
         
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if ip_pkt:
-            # if ip_pkt.src in malicious_ips.keys():
-            #     self.logger.info("Malicious IP detected. Dropping packet.")
-            #     match = parser.OFPMatch(ipv4_src=ip_pkt.src)
-            #     self.add_flow(datapath, 1, match, [])
-            #     packetsDropped += 1
-            #     return
+            if ip_pkt.src in malicious_ips.keys():
+                self.logger.info("Malicious IP detected. Dropping packet.")
+                match = parser.OFPMatch(ipv4_src=ip_pkt.src)
+                self.add_flow(datapath, 1, match, [])
+                SimpleSwitch13.packetsDropped += 1
+                return
         
             icmp_pkt = pkt.get_protocol(icmp.icmp)
             if icmp_pkt:
@@ -95,7 +93,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info(f'Malicious TCP port detected. Dropping packet. Port: {tcp_pkt.dst_port}')
                 match = parser.OFPMatch(tcp_dst=tcp_pkt.dst_port)
                 self.add_flow(datapath, 1, match, [])
-                pacletsDropped += 1
+                SimpleSwitch13.packetsDropped += 1
                 return
         
         udp_pkt = pkt.get_protocol(udp.udp)
@@ -105,7 +103,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info(f'Malicious UDP port detected. Dropping packet. Port: {udp_pkt.dst_port}')
                 match = parser.OFPMatch(udp_dst=udp_pkt.dst_port)
                 self.add_flow(datapath, 1, match, [])
-                packetsDropped += 1
+                SimpleSwitch13.packetsDropped += 1
                 return
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
