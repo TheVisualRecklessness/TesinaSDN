@@ -132,15 +132,26 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         self.logger.info('datapath         '
                          'in-port  eth-dst           '
-                         'out-port packets  bytes')
+                         'out-port action  packets  bytes  dst-port')
         self.logger.info('---------------- '
                          '-------- ----------------- '
-                         '-------- -------- --------')
+                         '-------- ------- -------- -------- --------')
         for stat in sorted([flow for flow in body if flow.priority == 1],
                            key=lambda flow: (flow.match['in_port'],
                                              flow.match['eth_dst'])):
-            self.logger.info('%016x %8x %17s %8x %8d %8d',
-                             ev.msg.datapath.id,
-                             stat.match['in_port'], stat.match['eth_dst'],
-                             stat.instructions[0].actions[0].port,
-                             stat.packet_count, stat.byte_count)
+            actions = stat.instructions[0].actions
+            for action in actions:
+                if isinstance(action, ofproto_v1_3_parser.OFPActionOutput):
+                    # Extract destination port from the match fields
+                    dst_port = None
+                    if 'tcp_dst' in stat.match:
+                        dst_port = stat.match['tcp_dst']
+                    elif 'udp_dst' in stat.match:
+                        dst_port = stat.match['udp_dst']
+                    
+                    self.logger.info('%016x %8x %17s %8x %7s %8d %8d %8s',
+                                     ev.msg.datapath.id,
+                                     stat.match['in_port'], stat.match['eth_dst'],
+                                     action.port, 'OUTPUT',
+                                     stat.packet_count, stat.byte_count,
+                                     dst_port if dst_port else 'N/A')
