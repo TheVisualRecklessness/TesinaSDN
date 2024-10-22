@@ -1,16 +1,43 @@
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER, set_ev_cls
+from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
+from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ipv4, arp, tcp, udp
+from ryu.lib.packet import packet
+from ryu.lib.packet import ethernet
+from ryu.lib.packet import ether_types
 
-class PortScanDetection(app_manager.RyuApp):
+class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(PortScanDetection, self).__init__(*args, **kwargs)
-        self.port_scan_threshold = 10  # Threshold for port scan detection
-        self.scan_data = {}  # Dictionary to track scanning behavior
+        super(SimpleSwitch13, self).__init__(*args, **kwargs)
+        self.mac_to_port = {}
+
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # Install table-miss flow entry
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
+        self.add_flow(datapath, 0, match, actions)
+
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst)
+        datapath.send_msg(mod)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -23,43 +50,37 @@ class PortScanDetection(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        # Ignore ARP packets
-        arp_pkt = pkt.get_protocol(arp.arp)
-        if arp_pkt:
-            return  # ARP packets should be ignored for port scan detection
+        dst = eth.dst
+        src = eth.src
 
-        ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        if not ip_pkt:
-            return  # Non-IP packets should be ignored
+        dpid = datapath.id
+        self.mac_to_port.setdefault(dpid, {})
 
-        src_ip = ip_pkt.src
-        dst_ip = ip_pkt.dst
-        dst_port = None
+        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
-        # Handle TCP and UDP packets
-        tcp_pkt = pkt.get_protocol(tcp.tcp)
-        udp_pkt = pkt.get_protocol(udp.udp)
+        # Learn a mac address to avoid FLOOD next time.
+        self.mac_to_port[dpid][src] = in_port
 
-        if tcp_pkt:
-            dst_port = tcp_pkt.dst_port
-        elif udp_pkt:
-            dst_port = udp_pkt.dst_port
+        if dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
+        else:
+            out_port = ofproto.OFPP_FLOOD
 
-        if dst_port:
-            self.detect_port_scan(src_ip, dst_ip, dst_port)
+        actions = [parser.OFPActionOutput(out_port)]
 
-    def detect_port_scan(self, src_ip, dst_ip, dst_port):
-        if src_ip not in self.scan_data:
-            self.scan_data[src_ip] = set()
+        # Install a flow to avoid packet_in next time
+        if out_port != ofproto.OFPP_FLOOD:
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                return
+            else:
+                self.add_flow(datapath, 1, match, actions)
 
-        # Add the destination port to the set of accessed ports
-        self.scan_data[src_ip].add(dst_port)
+        data = None
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+            data = msg.data
 
-        # Check if the number of unique ports exceeds the threshold
-        if len(self.scan_data[src_ip]) > self.port_scan_threshold:
-            self.logger.info("Potential port scanning detected from %s", src_ip)
-            # Optionally: Block the source IP
-
-    def block_traffic(self, src_ip):
-        # Logic to block traffic from the src_ip can be implemented here
-        pass
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                  in_port=in_port, actions=actions, data=data)
+        datapath.send_msg(out)
