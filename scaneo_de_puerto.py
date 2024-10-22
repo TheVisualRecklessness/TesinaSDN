@@ -68,12 +68,23 @@ class SimpleSwitch13(app_manager.RyuApp):
         return False
 
     def block_ip(self, datapath, src_ip):
-        """ Block traffic from a source IP by installing a drop rule """
         parser = datapath.ofproto_parser
-        match = parser.OFPMatch(ipv4_src=src_ip)
-        actions = []  # No actions means drop
-        self.add_flow(datapath, 10, match, actions)
-        self.logger.info(f"Port scan detected from {src_ip}. Blocking IP.")
+        ofproto = datapath.ofproto
+
+        match = parser.OFPMatch(eth_type=0x0800, ipv4_src=src_ip)
+
+        actions = []  # No actions to drop the packets
+
+        priority = 50000
+        self.add_flow(datapath, priority, match, actions)
+
+        # Send an empty PacketOut to the switch to flush buffer
+        out = parser.OFPPacketOut(
+            datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
+            in_port=ofproto.OFPP_CONTROLLER, actions=[], data=None)
+        datapath.send_msg(out)
+
+        self.logger.info(f"Blocking IP {src_ip} with drop rule.")
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
