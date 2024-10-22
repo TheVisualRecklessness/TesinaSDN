@@ -9,7 +9,7 @@ tcp_ports = [20, 21, 22, 23, 25, 80, 110, 143, 443]
 udp_ports = [53, 67, 68, 69, 123, 161, 162, 500]
 
 def generate_random_packet():
-    dst_ip = random.choice(ip_range)
+    dst_ip = '10.0.0.1'
     dst_port = random.choice(tcp_ports)
     src_port = random.randint(49152, 65535)
     

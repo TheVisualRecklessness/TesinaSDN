@@ -14,8 +14,8 @@ class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     # Threshold for detecting port scans
-    PORT_SCAN_THRESHOLD = 3  # Unique ports
-    TIME_WINDOW = 10  # Time window in seconds to detect scanning
+    PORT_SCAN_THRESHOLD = 2  # Unique ports
+    TIME_WINDOW = 60  # Time window in seconds to detect scanning
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
