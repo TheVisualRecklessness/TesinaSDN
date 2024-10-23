@@ -117,34 +117,35 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        if pkt.get_protocol(icmp.icmp):
-            # Handle ICMP traffic, but install a flow ONLY for ICMP
-            match = parser.OFPMatch(eth_type=0x0800, ip_proto=1, ipv4_src=src)
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-            else:
-                self.add_flow(datapath, 1, match, actions)
-        else:
-            # If packet is IPv4, check for port scanning
-            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-            if ipv4_pkt:
-                src_ip = ipv4_pkt.src
-                dst_ip = ipv4_pkt.dst
+        # If packet is IPv4, check for port scanning
+        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        if ipv4_pkt:
+            src_ip = ipv4_pkt.src
+            dst_ip = ipv4_pkt.dst
 
-                # Check for TCP or UDP protocol
-                tcp_pkt = pkt.get_protocol(tcp.tcp)
-                udp_pkt = pkt.get_protocol(udp.udp)
+            # Check for TCP or UDP protocol
+            tcp_pkt = pkt.get_protocol(tcp.tcp)
+            udp_pkt = pkt.get_protocol(udp.udp)
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
 
-                if tcp_pkt:
-                    dst_port = tcp_pkt.dst_port
-                    if self.detect_port_scan(src_ip, dst_port):
-                        self.block_ip(datapath, src_ip)
-                        return
-                elif udp_pkt:
-                    dst_port = udp_pkt.dst_port
-                    if self.detect_port_scan(src_ip, dst_port):
-                        self.block_ip(datapath, src_ip)
-                        return
+            if icmp_pkt:
+                # Handle ICMP traffic, but install a flow ONLY for ICMP
+                match = parser.OFPMatch(eth_type=0x0800, ip_proto=1, ipv4_src=src_ip)
+                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                else:
+                    self.add_flow(datapath, 1, match, actions)
+            
+            if tcp_pkt:
+                dst_port = tcp_pkt.dst_port
+                if self.detect_port_scan(src_ip, dst_port):
+                    self.block_ip(datapath, src_ip)
+                    return
+            elif udp_pkt:
+                dst_port = udp_pkt.dst_port
+                if self.detect_port_scan(src_ip, dst_port):
+                    self.block_ip(datapath, src_ip)
+                    return
 
         # Install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
