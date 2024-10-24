@@ -41,11 +41,11 @@ class CombinedController(app_manager.RyuApp):
 
         # Aumentar el contador de flujos instalados por el switch
         self.flow_counter[datapath.id] += 1
-        self.logger.info(f"Flow installed on switch {datapath.id}. Total flows: {self.flow_counter[datapath.id]}")
+        self.logger.info(f"Inicio de flujos instalados {datapath.id}. Total de flujos: {self.flow_counter[datapath.id]}")
 
         # Limitar el número de flujos para prevenir ataques de inundación
         if self.flow_counter[datapath.id] > 1000:
-            self.logger.warning(f"Flow limit exceeded on switch {datapath.id}. Dropping further flows.")
+            self.logger.warning(f"limite de flujos superado {datapath.id}. no se instaln mas flujos.")
             # Implementar lógica para evitar instalar más flujos si se supera el límite
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
