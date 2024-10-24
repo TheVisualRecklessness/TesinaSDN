@@ -46,7 +46,7 @@ class CombinedController(app_manager.RyuApp):
         # Limitar el número de flujos para prevenir ataques de inundación
         if self.flow_counter[datapath.id] > 1000:
             self.logger.warning(f"limite de flujos superado {datapath.id}. no se instaln mas flujos.")
-            # Implementar lógica para evitar instalar más flujos si se supera el límite
+            
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -79,7 +79,7 @@ class CombinedController(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        # Guardar la MAC de origen en la tabla
+        
         self.mac_to_port[dpid][src] = in_port
 
         # Verificar si la MAC de destino está en la tabla
