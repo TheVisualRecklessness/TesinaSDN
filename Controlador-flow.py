@@ -1,97 +1,110 @@
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, set_ev_cls
-from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet, ipv4, udp
+from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
+from ryu.controller.handler import set_ev_cls
+from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser, inet
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp, icmp, tcp, udp
 from collections import defaultdict
-import time
 
-class AntiFlowFloodingController(app_manager.RyuApp):
+class CombinedController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(AntiFlowFloodingController, self).__init__(*args, **kwargs)
-        # Diccionario para rastrear el número de flujos por IP de origen
-        self.flow_count = defaultdict(lambda: {'count': 0, 'timestamp': time.time()})
-        self.FLOW_LIMIT = 100  # Límite de flujos permitidos por IP de origen
-        self.TIME_WINDOW = 60  # Tiempo de ventana (segundos) para contar los flujos
+        super(CombinedController, self).__init__(*args, **kwargs)
+        self.mac_to_port = {}
+        self.flow_counter = defaultdict(int)  # Contador para flujos instalados por switch
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
-        # Función que se llama al conectar un switch
-        self.logger.info("Anti-flow flooding controller initialized")
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        self.add_flow(datapath, 0, match, actions)
+
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst)
+        datapath.send_msg(mod)
+
+        # Aumentar el contador de flujos instalados por el switch
+        self.flow_counter[datapath.id] += 1
+        self.logger.info(f"Flow installed on switch {datapath.id}. Total flows: {self.flow_counter[datapath.id]}")
+
+        # Limitar el número de flujos para prevenir ataques de inundación
+        if self.flow_counter[datapath.id] > 1000:
+            self.logger.warning(f"Flow limit exceeded on switch {datapath.id}. Dropping further flows.")
+            # Implementar lógica para evitar instalar más flujos si se supera el límite
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-        # Función que maneja los paquetes que no tienen una regla en la tabla de flujo
+    def _packet_in_handler(self, ev):
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
 
-        # Extraer el paquete
         pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocol(ethernet.ethernet)
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        # Filtrar solo paquetes IPv4
-        ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        if ip_pkt is None:
+        # Evitar instalar reglas para paquetes LLDP
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
-        ip_src = ip_pkt.src
-        ip_dst = ip_pkt.dst
+        # Manejo de paquetes ICMP, TCP y UDP
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        if ip_pkt:
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            if icmp_pkt:
+                self.logger.info("ICMP packet detected.")
+                # Puedes agregar lógica específica si quieres manejar los paquetes ICMP
 
-        # Verificar si la IP de origen ha superado el límite de flujos permitidos
-        if self.is_flow_limit_exceeded(ip_src):
-            self.logger.warning(f"Rate limiting applied to IP: {ip_src}")
-            return  # Descarta el paquete y no instala el flujo
+            tcp_pkt = pkt.get_protocol(tcp.tcp)
+            udp_pkt = pkt.get_protocol(udp.udp)
 
-        # Instalamos la regla de flujo para este paquete si no ha superado el límite
-        self.add_flow(datapath, in_port, eth, ip_pkt)
+        dst = eth.dst
+        src = eth.src
+        dpid = datapath.id
+        self.mac_to_port.setdefault(dpid, {})
 
-    def is_flow_limit_exceeded(self, ip_src):
-        # Verificar si la IP de origen ha excedido el límite de flujos permitidos
-        current_time = time.time()
-        if current_time - self.flow_count[ip_src]['timestamp'] > self.TIME_WINDOW:
-            # Reiniciar el contador si el tiempo de la ventana ha expirado
-            self.flow_count[ip_src] = {'count': 1, 'timestamp': current_time}
-            return False
+        # Guardar la MAC de origen en la tabla
+        self.mac_to_port[dpid][src] = in_port
+
+        # Verificar si la MAC de destino está en la tabla
+        if dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
         else:
-            # Incrementar el contador de flujos
-            self.flow_count[ip_src]['count'] += 1
-            # Si el límite de flujos ha sido excedido, denegar el paquete
-            if self.flow_count[ip_src]['count'] > self.FLOW_LIMIT:
-                return True
-            return False
+            out_port = ofproto.OFPP_FLOOD
 
-    def add_flow(self, datapath, in_port, eth, ip_pkt, idle_timeout=10, hard_timeout=30):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
+        actions = [parser.OFPActionOutput(out_port)]
 
-        # Crear coincidencia (match) para el flujo con las direcciones IP y MAC
-        match = parser.OFPMatch(
-            in_port=in_port,
-            eth_src=eth.src,
-            eth_dst=eth.dst,
-            ipv4_src=ip_pkt.src,
-            ipv4_dst=ip_pkt.dst
-        )
+        # Añadir la regla de flujo si no estamos inundando
+        if out_port != ofproto.OFPP_FLOOD:
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                return
+            else:
+                self.add_flow(datapath, 1, match, actions)
 
-        # Definir las acciones (ej. enviar al puerto)
-        actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+        # Enviar el paquete a la salida correcta
+        data = None
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+            data = msg.data
 
-        # Instrucción para aplicar las acciones
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                  in_port=in_port, actions=actions, data=data)
+        datapath.send_msg(out)
 
-        # Definir el modificador de flujo con timeouts para evitar sobrecarga de reglas
-        mod = parser.OFPFlowMod(
-            datapath=datapath, priority=1, match=match, instructions=inst,
-            idle_timeout=idle_timeout, hard_timeout=hard_timeout
-        )
-
-        # Enviar el flujo al switch
-        datapath.send_msg(mod)
-        self.logger.info(f"Flow added: IP src: {ip_pkt.src}, IP dst: {ip_pkt.dst}")
-        #cambio1
