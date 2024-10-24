@@ -12,8 +12,14 @@ class FlowTableFloodingAttack(app_manager.RyuApp):
         super(FlowTableFloodingAttack, self).__init__(*args, **kwargs)
         self.mac_src = '00:00:00:00:00:01'
         self.mac_dst = '00:00:00:00:00:02'
+        self.mac_dst = '00:00:00:00:00:03'
+        self.mac_dst = '00:00:00:00:00:04'
+        self.mac_dst = '00:00:00:00:00:05'
         self.ip_src = '10.0.0.1'
         self.ip_dst = '10.0.0.2'
+        self.ip_dst = '10.0.0.3'
+        self.ip_dst = '10.0.0.4'
+        self.ip_dst = '10.0.0.5'
         
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, MAIN_DISPATCHER)
     def switch_features_handler(self, ev):
