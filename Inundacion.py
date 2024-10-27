@@ -16,7 +16,7 @@ def flood_flow_table(iface):
         
         print(f"Enviando paquete: {pkt.summary()}")
         sendp(pkt, iface=iface, verbose=False)
-        time.sleep(0.1)  # Esperar un poco para no saturar la red
+   #     time.sleep(0.1)  # Esperar un poco para no saturar la red
 
 if __name__ == "__main__":
     flood_flow_table("h1-eth0")  # Cambia "h1-eth0" si es necesario

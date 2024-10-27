@@ -8,7 +8,7 @@ from collections import defaultdict
 
 class CombinedController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    FLOW_LIMIT = 100  # Límite de flujos por switch
+    FLOW_LIMIT = 10000  # Límite de flujos por switch
 
     def __init__(self, *args, **kwargs):
         super(CombinedController, self).__init__(*args, **kwargs)
@@ -31,7 +31,7 @@ class CombinedController(app_manager.RyuApp):
 
         # Verifica el límite de flujos
         if self.flow_counter[dpid] >= self.FLOW_LIMIT:
-            self.logger.warning(f"Límite de flujos alcanzado en switch {dpid}. No se instalarán más.")
+            self.logger.warning(f"Limite de flujos alcanzado en switch {dpid}. No se instalaran mas.")
             return
 
         ofproto = datapath.ofproto
@@ -75,7 +75,7 @@ class CombinedController(app_manager.RyuApp):
             out_port = self.mac_to_port[dpid][dst]
         else:
             out_port = ofproto.OFPP_FLOOD
-            self.logger.info(f"Flood utilizado en switch {dpid} para {src} -> {dst}")
+            self.logger.info(f"Flujo utilizado en switch {dpid} para {src} -> {dst}")
 
         actions = [parser.OFPActionOutput(out_port)]
 
