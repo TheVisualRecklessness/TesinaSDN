@@ -17,6 +17,7 @@ class FlowTableFloodingAttack(app_manager.RyuApp):
         self.flood_flow_table()
 
     def flood_flow_table(self):
+        self.logger.info("Comenzando a enviar paquetes...")
         for i in range(10000):  # Enviar 10,000 paquetes con diferentes direcciones IP
             random_mac_src = self.random_mac()
             random_mac_dst = self.random_mac()
