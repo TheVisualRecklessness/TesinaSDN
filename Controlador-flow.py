@@ -8,7 +8,7 @@ from collections import defaultdict
 
 class CombinedController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    FLOW_LIMIT = 10000  # Límite de flujos por switch
+    FLOW_LIMIT = 1000000  # Límite de flujos por switch
 
     def __init__(self, *args, **kwargs):
         super(CombinedController, self).__init__(*args, **kwargs)

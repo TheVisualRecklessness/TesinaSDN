@@ -9,7 +9,7 @@ def random_ip():
     return "10.0.%d.%d" % (random.randint(1, 254), random.randint(1, 254))
 
 def flood_flow_table(iface):
-    for i in range(1000):  # Enviar 100 paquetes para probar
+    for i in range(100000):  # Enviar 100 paquetes para probar
         pkt = Ether(src=random_mac(), dst=random_mac()) / \
               IP(src=random_ip(), dst=random_ip()) / \
               UDP(sport=random.randint(1024, 65535), dport=random.randint(1, 1024))
