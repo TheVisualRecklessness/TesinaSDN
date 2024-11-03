@@ -63,8 +63,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                    if current_time - t <= self.TIME_WINDOW]
 
         # Check if the number of unique ports exceeds the threshold
-        self.logger.info(f"Source IP {src_ip} accessed {len(self.scan_tracker[src_ip]['ports'])} ports.")
-        self.logger.info(f"Source IP {src_ip} accessed ports: {self.scan_tracker[src_ip]['ports']}")
+        self.logger.info(f"Dirección IP origen {src_ip} ha accesado {len(self.scan_tracker[src_ip]['ports'])} puertos.")
+        self.logger.info(f"Dirección IP origen {src_ip} ha accesado los puertos: {self.scan_tracker[src_ip]['ports']}")
         if len(self.scan_tracker[src_ip]['ports']) > self.PORT_SCAN_THRESHOLD:
             return True
         return False
@@ -86,7 +86,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             in_port=ofproto.OFPP_CONTROLLER, actions=[], data=None)
         datapath.send_msg(out)
 
-        self.logger.info(f"Blocking IP {src_ip} with drop rule.")
+        self.logger.info(f"Bloqueando dirección IP {src_ip} por posible escaneo de puertos.")
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -140,13 +140,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             
             if tcp_pkt:
                 dst_port = tcp_pkt.dst_port
-                self.logger.info(f"Incoming packet with destination TCP port {dst_port}.")
+                self.logger.info(f"Paquete entrante con puerto TCP destino: {dst_port}.")
                 if self.detect_port_scan(src_ip, dst_port):
                     self.block_ip(datapath, src_ip)
                     return
             elif udp_pkt:
                 dst_port = udp_pkt.dst_port
-                self.logger.info(f"Incoming packet with destination UDP port {dst_port}.")
+                self.logger.info(f"Paquete entrante con puerto UDP destino: {dst_port}.")
                 if self.detect_port_scan(src_ip, dst_port):
                     self.block_ip(datapath, src_ip)
                     return
