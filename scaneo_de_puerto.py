@@ -15,7 +15,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     # Threshold for detecting port scans
     PORT_SCAN_THRESHOLD = 2  # Unique ports
-    TIME_WINDOW = 60  # Time window in seconds to detect scanning
+    TIME_WINDOW = 120  # Time window in seconds to detect scanning
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
@@ -106,7 +106,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         dst_mac = eth.dst
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src_mac, dst_mac, in_port)
+        # self.logger.info("packet in: %s %s %s", src_mac, dst_mac, in_port)
 
         self.mac_to_port[dpid][src_mac] = in_port
 
@@ -139,11 +139,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             if tcp_pkt:
                 dst_port = tcp_pkt.dst_port
                 if self.detect_port_scan(src_ip, dst_port):
+                    self.logger.info(f"Incoming packet with destination TCP port {dst_port}.")
                     self.block_ip(datapath, src_ip)
                     return
             elif udp_pkt:
                 dst_port = udp_pkt.dst_port
                 if self.detect_port_scan(src_ip, dst_port):
+                    self.logger.info(f"Incoming packet with destination UDP port {dst_port}.")
                     self.block_ip(datapath, src_ip)
                     return
 
