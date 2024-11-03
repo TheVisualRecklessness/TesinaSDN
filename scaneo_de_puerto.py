@@ -64,6 +64,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # Check if the number of unique ports exceeds the threshold
         self.logger.info(f"Source IP {src_ip} accessed {len(self.scan_tracker[src_ip]['ports'])} ports.")
+        self.logger.info(f"Source IP {src_ip} accessed ports: {self.scan_tracker[src_ip]['ports']}")
         if len(self.scan_tracker[src_ip]['ports']) > self.PORT_SCAN_THRESHOLD:
             return True
         return False
