@@ -63,6 +63,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                    if current_time - t <= self.TIME_WINDOW]
 
         # Check if the number of unique ports exceeds the threshold
+        self.logger.info(f"Source IP {src_ip} accessed {len(self.scan_tracker[src_ip]['ports'])} ports.")
         if len(self.scan_tracker[src_ip]['ports']) > self.PORT_SCAN_THRESHOLD:
             return True
         return False
@@ -138,14 +139,14 @@ class SimpleSwitch13(app_manager.RyuApp):
             
             if tcp_pkt:
                 dst_port = tcp_pkt.dst_port
+                self.logger.info(f"Incoming packet with destination TCP port {dst_port}.")
                 if self.detect_port_scan(src_ip, dst_port):
-                    self.logger.info(f"Incoming packet with destination TCP port {dst_port}.")
                     self.block_ip(datapath, src_ip)
                     return
             elif udp_pkt:
                 dst_port = udp_pkt.dst_port
+                self.logger.info(f"Incoming packet with destination UDP port {dst_port}.")
                 if self.detect_port_scan(src_ip, dst_port):
-                    self.logger.info(f"Incoming packet with destination UDP port {dst_port}.")
                     self.block_ip(datapath, src_ip)
                     return
 
