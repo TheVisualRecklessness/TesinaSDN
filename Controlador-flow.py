@@ -10,7 +10,7 @@ from ryu.lib.packet import tcp, udp
 from ryu.lib.packet import ether_types
 import time
 
-class SimpleSwitch13(app_manager.RyuApp):
+class CombinedController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     # Threshold for detecting port scans
@@ -18,7 +18,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     TIME_WINDOW = 60  # Time window in seconds to detect scanning
 
     def __init__(self, *args, **kwargs):
-        super(SimpleSwitch13, self).__init__(*args, **kwargs)
+        super(CombinedController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self.scan_tracker = {}  # To track source IP and accessed ports with timestamps
 
