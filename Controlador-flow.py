@@ -3,12 +3,9 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import ipv4, icmp
-from ryu.lib.packet import tcp, udp
-from ryu.lib.packet import ether_types
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp, tcp, udp
 import time
+from collections import defaultdict
 
 class CombinedController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -16,11 +13,13 @@ class CombinedController(app_manager.RyuApp):
     # Threshold for detecting port scans
     PORT_SCAN_THRESHOLD = 4  # Unique ports
     TIME_WINDOW = 60  # Time window in seconds to detect scanning
+    FLOW_LIMIT = 1000 # Maximum number of flows to keep in the switch
 
     def __init__(self, *args, **kwargs):
         super(CombinedController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self.scan_tracker = {}  # To track source IP and accessed ports with timestamps
+        self.flow_counter = defaultdict(int)  # To track number of flows per switch
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -34,9 +33,14 @@ class CombinedController(app_manager.RyuApp):
         self.add_flow(datapath, 0, match, actions)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        dpid = datapath.id
+
+        if self.flow_counter[dpid] >= self.FLOW_LIMIT:
+            self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
+            return
+        
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
         if buffer_id:
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
@@ -46,6 +50,9 @@ class CombinedController(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
+
+        self.flow_counter[dpid] += 1
+        self.logger.info(f"Flujo instalado en switch {dpid}. Número de flujos: {self.flow_counter[dpid]}")
 
     def detect_port_scan(self, src_ip, dst_port):
         current_time = time.time()
@@ -114,8 +121,10 @@ class CombinedController(app_manager.RyuApp):
 
         if dst_mac in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst_mac]
+            self.logger.info(f"Flujo utilizado en switch {dpid} para {src_mac} -> {dst_mac}.")
         else:
             out_port = ofproto.OFPP_FLOOD
+            self.logger.info(f"Flujo utilizado en switch {dpid} para {src_mac} -> {dst_mac} (FLOOD).")
 
         actions = [parser.OFPActionOutput(out_port)]
 
