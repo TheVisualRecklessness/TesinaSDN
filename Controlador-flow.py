@@ -130,6 +130,16 @@ class CombinedController(app_manager.RyuApp):
 
         actions = [parser.OFPActionOutput(out_port)]
 
+        icmp_pkt = pkt.get_protocol(icmp.icmp)
+
+        if icmp_pkt:
+            # Handle ICMP traffic, but install a flow ONLY for ICMP
+            match = parser.OFPMatch(eth_type=0x0800, ip_proto=1, ipv4_src=src_ip)
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+            else:
+                self.add_flow(datapath, 1, match, actions)
+
         # If packet is IPv4, check for port scanning
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         if ipv4_pkt:
@@ -139,15 +149,6 @@ class CombinedController(app_manager.RyuApp):
             # Check for TCP or UDP protocol
             tcp_pkt = pkt.get_protocol(tcp.tcp)
             udp_pkt = pkt.get_protocol(udp.udp)
-            icmp_pkt = pkt.get_protocol(icmp.icmp)
-
-            if icmp_pkt:
-                # Handle ICMP traffic, but install a flow ONLY for ICMP
-                match = parser.OFPMatch(eth_type=0x0800, ip_proto=1, ipv4_src=src_ip)
-                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                else:
-                    self.add_flow(datapath, 1, match, actions)
             
             if tcp_pkt:
                 dst_port = tcp_pkt.dst_port
