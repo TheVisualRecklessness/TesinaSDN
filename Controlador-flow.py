@@ -30,7 +30,7 @@ class CombinedController(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
-    def get_match_field(match, field_name):
+    def get_match_field(self, match, field_name):
         match_dict = match.to_jsondict()['OFPMatch']['oxm_fields']
         for field in match_dict:
             if field['OXMTlv']['field'] == field_name:
@@ -39,13 +39,17 @@ class CombinedController(app_manager.RyuApp):
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         dpid = datapath.id
-        port_dst = self.get_match_field(match, 'port_dst')
+        tcp_dst = self.get_match_field(match, 'tcp_dst')
+        udp_dst = self.get_match_field(match, 'udp_dst')
 
         if self.flow_counter[dpid] >= self.FLOW_LIMIT:
             self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
             return
         
-        if port_dst and port_dst > 49151:
+        if tcp_dst and tcp_dst > 49151:
+            self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
+            return
+        elif udp_dst and udp_dst > 49151:
             self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
             return
         
@@ -153,7 +157,7 @@ class CombinedController(app_manager.RyuApp):
                     self.block_ip(datapath, src_ip)
                     return
                 else:
-                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=6, ipv4_dst=dst_ip, port_dst=dst_port)
+                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=6, ipv4_dst=dst_ip, tcp_dst=dst_port)
                     if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
@@ -165,7 +169,7 @@ class CombinedController(app_manager.RyuApp):
                     self.block_ip(datapath, src_ip)
                     return
                 else:
-                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=17, ipv4_dst=dst_ip, port_dst=dst_port)
+                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=17, ipv4_dst=dst_ip, udp_dst=dst_port)
                     if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
