@@ -37,7 +37,7 @@ class CombinedController(app_manager.RyuApp):
             self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
             return
         
-        if match['dst_prt'] in range(49152, 65535):
+        if match['port_dst'] in range(49152, 65535):
             self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
             return
         
@@ -145,7 +145,7 @@ class CombinedController(app_manager.RyuApp):
                     self.block_ip(datapath, src_ip)
                     return
                 else:
-                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=6, ipv4_dst=dst_ip, tcp_dst=dst_port)
+                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=6, ipv4_dst=dst_ip, port_dst=dst_port)
                     if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
@@ -157,7 +157,7 @@ class CombinedController(app_manager.RyuApp):
                     self.block_ip(datapath, src_ip)
                     return
                 else:
-                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=17, ipv4_dst=dst_ip, udp_dst=dst_port)
+                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=17, ipv4_dst=dst_ip, port_dst=dst_port)
                     if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
