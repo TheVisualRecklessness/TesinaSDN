@@ -30,14 +30,22 @@ class CombinedController(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
+    def get_match_field(match, field_name):
+        match_dict = match.to_jsondict()['OFPMatch']['oxm_fields']
+        for field in match_dict:
+            if field['OXMTlv']['field'] == field_name:
+                return field['OXMTlv']['value']
+        return None
+
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         dpid = datapath.id
+        port_dst = self.get_match_field(match, 'port_dst')
 
         if self.flow_counter[dpid] >= self.FLOW_LIMIT:
             self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
             return
         
-        if match['port_dst'] in range(49152, 65535):
+        if port_dst and port_dst > 49151:
             self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
             return
         
