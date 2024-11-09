@@ -37,6 +37,10 @@ class CombinedController(app_manager.RyuApp):
             self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
             return
         
+        if match['dst_prt'] in range(49152, 65535):
+            self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
+            return
+        
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
@@ -125,14 +129,14 @@ class CombinedController(app_manager.RyuApp):
 
             tcp_pkt = pkt.get_protocol(tcp.tcp)
             udp_pkt = pkt.get_protocol(udp.udp)
-            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            # icmp_pkt = pkt.get_protocol(icmp.icmp)
 
-            if icmp_pkt:
-                match = parser.OFPMatch(eth_type=0x0800, ip_proto=1, ipv4_src=src_ip)
-                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                else:
-                    self.add_flow(datapath, 1, match, actions)
+            # if icmp_pkt:
+            #     match = parser.OFPMatch(eth_type=0x0800, ip_proto=1, ipv4_src=src_ip)
+            #     if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+            #         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+            #     else:
+            #         self.add_flow(datapath, 1, match, actions)
             
             if tcp_pkt:
                 dst_port = tcp_pkt.dst_port
@@ -140,12 +144,24 @@ class CombinedController(app_manager.RyuApp):
                 if self.detect_port_scan(src_ip, dst_port):
                     self.block_ip(datapath, src_ip)
                     return
+                else:
+                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=6, ipv4_dst=dst_ip, tcp_dst=dst_port)
+                    if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                        self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                    else:
+                        self.add_flow(datapath, 1, match, actions)
             elif udp_pkt:
                 dst_port = udp_pkt.dst_port
                 self.logger.info(f"Paquete entrante con puerto UDP destino: {dst_port}.")
                 if self.detect_port_scan(src_ip, dst_port):
                     self.block_ip(datapath, src_ip)
                     return
+                else:
+                    match = parser.OFPMatch(eth_type=0x0800, ip_proto=17, ipv4_dst=dst_ip, udp_dst=dst_port)
+                    if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                        self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                    else:
+                        self.add_flow(datapath, 1, match, actions)
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
