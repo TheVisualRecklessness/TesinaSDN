@@ -70,20 +70,23 @@ class CombinedController(app_manager.RyuApp):
 
     def detect_port_scan(self, src_ip, dst_port):
         current_time = time.time()
-
+    
         if src_ip not in self.scan_tracker:
-            self.scan_tracker[src_ip] = {'ports': set(), 'timestamps': []}
-
+            self.scan_tracker[src_ip] = {'port_timestamps': []}
+    
         if dst_port not in range(49152, 65535):
-            self.scan_tracker[src_ip]['ports'].add(dst_port)
-            self.scan_tracker[src_ip]['timestamps'].append(current_time)            
+            self.scan_tracker[src_ip]['port_timestamps'].append({'port': dst_port, 'timestamp': current_time})
 
-            self.scan_tracker[src_ip]['timestamps'] = [t for t in self.scan_tracker[src_ip]['timestamps']
-                                                    if current_time - t <= self.TIME_WINDOW]
+            self.scan_tracker[src_ip]['port_timestamps'] = [
+                entry for entry in self.scan_tracker[src_ip]['port_timestamps']
+                if current_time - entry['timestamp'] <= self.TIME_WINDOW
+            ]
 
-            self.logger.info(f"Dirección IP origen {src_ip} ha accesado {len(self.scan_tracker[src_ip]['ports'])} puertos.")
-            self.logger.info(f"Dirección IP origen {src_ip} ha accesado los puertos: {self.scan_tracker[src_ip]['ports']}")
-            if len(self.scan_tracker[src_ip]['ports']) > self.PORT_SCAN_THRESHOLD:
+            ports = {entry['port'] for entry in self.scan_tracker[src_ip]['port_timestamps']}
+    
+            self.logger.info(f"Dirección IP origen {src_ip} ha accesado {len(ports)} puertos.")
+            self.logger.info(f"Dirección IP origen {src_ip} ha accesado los puertos: {ports}")
+            if len(ports) > self.PORT_SCAN_THRESHOLD:
                 return True
             return False
 
