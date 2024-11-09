@@ -48,10 +48,6 @@ class CombinedController(app_manager.RyuApp):
         #     self.logger.info(f"Flujo máximo alcanzado para dirección IP {dst_ip}. No se instalarán más flujos.")
         #     return
 
-        if self.flow_counter[dpid] >= self.FLOW_LIMIT:
-            self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
-            return
-        
         if tcp_dst and tcp_dst > 49151:
             self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
             return
@@ -71,12 +67,13 @@ class CombinedController(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-        # self.flow_counter[dpid] += 1
-        # self.logger.info(f"Flujo instalado en switch {dpid}. Número de flujos: {self.flow_counter[dpid]}")
-        
         if dst_ip:
             self.flow_per_ip_counter[dst_ip] += 1
             self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
+            if self.flow_per_ip_counter[dst_ip] >= self.FLOW_LIMIT:
+                self.logger.info(f"Flujo máximo alcanzado para dirección IP {dst_ip}. No se instalarán más flujos.")
+                self.block_port(datapath, 5)
+                return
 
     def detect_port_scan(self, src_ip, dst_port):
         current_time = time.time()
@@ -100,6 +97,24 @@ class CombinedController(app_manager.RyuApp):
                 return True
             return False
 
+    def block_port(self, datapath, in_port):
+        parser = datapath.ofproto_parser
+        ofproto = datapath.ofproto
+
+        match = parser.OFPMatch(in_port=in_port)
+
+        actions = []
+
+        priority = 50000
+        self.add_flow(datapath, priority, match, actions)
+
+        out = parser.OFPPacketOut(
+            datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
+            in_port=ofproto.OFPP_CONTROLLER, actions=[], data=None)
+        datapath.send_msg(out)
+
+        self.logger.info(f"Bloqueando puerto {in_port} por posible ataque de inundacion.")
+    
     def block_ip(self, datapath, src_ip):
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
