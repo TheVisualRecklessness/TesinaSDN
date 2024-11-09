@@ -12,7 +12,7 @@ class CombinedController(app_manager.RyuApp):
 
     PORT_SCAN_THRESHOLD = 4
     TIME_WINDOW = 60
-    FLOW_LIMIT = 1000
+    FLOW_LIMIT = 3
 
     def __init__(self, *args, **kwargs):
         super(CombinedController, self).__init__(*args, **kwargs)
@@ -42,6 +42,11 @@ class CombinedController(app_manager.RyuApp):
         dpid = datapath.id
         tcp_dst = self.get_match_field(match, 'tcp_dst')
         udp_dst = self.get_match_field(match, 'udp_dst')
+        dst_ip = self.get_match_field(match, 'ipv4_dst')
+
+        # if dst_ip in self.flow_per_ip_counter and self.flow_per_ip_counter[dst_ip] >= self.FLOW_LIMIT:
+        #     self.logger.info(f"Flujo máximo alcanzado para dirección IP {dst_ip}. No se instalarán más flujos.")
+        #     return
 
         if self.flow_counter[dpid] >= self.FLOW_LIMIT:
             self.logger.info(f"Flujo máximo alcanzado en switch {dpid}. No se instalarán más flujos.")
@@ -66,8 +71,12 @@ class CombinedController(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-        self.flow_counter[dpid] += 1
-        self.logger.info(f"Flujo instalado en switch {dpid}. Número de flujos: {self.flow_counter[dpid]}")
+        # self.flow_counter[dpid] += 1
+        # self.logger.info(f"Flujo instalado en switch {dpid}. Número de flujos: {self.flow_counter[dpid]}")
+        
+        if dst_ip:
+            self.flow_per_ip_counter[dst_ip] += 1
+            self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
 
     def detect_port_scan(self, src_ip, dst_port):
         current_time = time.time()
@@ -166,8 +175,6 @@ class CombinedController(app_manager.RyuApp):
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
                         self.add_flow(datapath, 1, match, actions)
-                    self.flow_per_ip_counter[dst_ip] += 1
-                    self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
             elif udp_pkt:
                 dst_port = udp_pkt.dst_port
                 self.logger.info(f"Paquete entrante con puerto UDP destino: {dst_port}.")
@@ -180,8 +187,6 @@ class CombinedController(app_manager.RyuApp):
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
                         self.add_flow(datapath, 1, match, actions)
-                    self.flow_per_ip_counter[dst_ip] += 1
-                    self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
