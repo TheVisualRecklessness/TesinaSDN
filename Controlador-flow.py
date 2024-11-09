@@ -19,6 +19,7 @@ class CombinedController(app_manager.RyuApp):
         self.mac_to_port = {}
         self.scan_tracker = {}
         self.flow_counter = defaultdict(int)
+        self.flow_per_ip_counter = defaultdict(int)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -165,6 +166,8 @@ class CombinedController(app_manager.RyuApp):
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
                         self.add_flow(datapath, 1, match, actions)
+                    self.flow_per_ip_counter[dst_ip] += 1
+                    self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
             elif udp_pkt:
                 dst_port = udp_pkt.dst_port
                 self.logger.info(f"Paquete entrante con puerto UDP destino: {dst_port}.")
@@ -177,6 +180,8 @@ class CombinedController(app_manager.RyuApp):
                         self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                     else:
                         self.add_flow(datapath, 1, match, actions)
+                    self.flow_per_ip_counter[dst_ip] += 1
+                    self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
