@@ -12,7 +12,7 @@ class CombinedController(app_manager.RyuApp):
 
     PORT_SCAN_THRESHOLD = 4
     TIME_WINDOW = 60
-    FLOW_LIMIT = 3
+    FLOW_LIMIT = 12
 
     def __init__(self, *args, **kwargs):
         super(CombinedController, self).__init__(*args, **kwargs)
@@ -49,10 +49,10 @@ class CombinedController(app_manager.RyuApp):
         #     return
 
         if tcp_dst and tcp_dst > 49151:
-            self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
+            self.logger.info(f"Flujo con puerto destino en rango de puertos efimeros. No se instala.")
             return
         elif udp_dst and udp_dst > 49151:
-            self.logger.info(f"Flujo con puerto destino en rango de puertos efímeros. No se instalará.")
+            self.logger.info(f"Flujo con puerto destino en rango de puertos efimeros. No se instala.")
             return
         
         ofproto = datapath.ofproto
@@ -71,7 +71,7 @@ class CombinedController(app_manager.RyuApp):
             self.flow_per_ip_counter[dst_ip] += 1
             self.logger.info(f'Flujos por IP destino {dst_ip}: {self.flow_per_ip_counter[dst_ip]}')
             if self.flow_per_ip_counter[dst_ip] >= self.FLOW_LIMIT:
-                self.logger.info(f"Flujo máximo alcanzado para dirección IP {dst_ip}. No se instalarán más flujos.")
+                self.logger.info(f"Flujo maximo alcanzado para dirección IP {dst_ip}. No se instalan mas flujos.")
                 self.block_port(datapath, 5)
                 return
 
@@ -91,8 +91,8 @@ class CombinedController(app_manager.RyuApp):
 
             ports = {entry['port'] for entry in self.scan_tracker[src_ip]['port_timestamps']}
     
-            self.logger.info(f"Dirección IP origen {src_ip} ha accesado {len(ports)} puertos.")
-            self.logger.info(f"Dirección IP origen {src_ip} ha accesado los puertos: {ports}")
+            self.logger.info(f"Direccion IP origen {src_ip} ha accesado {len(ports)} puertos.")
+            self.logger.info(f"Direccion IP origen {src_ip} ha accesado los puertos: {ports}")
             if len(ports) > self.PORT_SCAN_THRESHOLD:
                 return True
             return False
@@ -131,7 +131,7 @@ class CombinedController(app_manager.RyuApp):
             in_port=ofproto.OFPP_CONTROLLER, actions=[], data=None)
         datapath.send_msg(out)
 
-        self.logger.info(f"Bloqueando dirección IP {src_ip} por posible escaneo de puertos.")
+        self.logger.info(f"Bloqueando direccion IP {src_ip} por posible escaneo de puertos.")
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
