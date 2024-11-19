@@ -4,7 +4,7 @@ from scapy.all import IP, TCP, UDP, send
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
-src_ip_range = ['140.25.7.4', '150.10.1.5', '160.42.67.124']
+src_ip_range = ['140.25.7.4', '150.10.1.5', '160.42.67.124', '190.53.108.60', '181.50.43.21']
 dst_ip_range = ['10.0.0.1', '10.0.0.2']
 tcp_ports = [20, 21, 22, 23, 25, 80, 110, 143, 443]
 udp_ports = [53, 67, 68, 69, 123, 161, 162, 500]

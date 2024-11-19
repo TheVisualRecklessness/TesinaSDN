@@ -6,6 +6,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp, tcp, udp
 import time
 from collections import defaultdict
+import threading
 
 class CombinedController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -18,8 +19,20 @@ class CombinedController(app_manager.RyuApp):
         super(CombinedController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self.scan_tracker = {}
+        self.blocked_ips = {}
+        self.blocked_ports = {}
         self.flow_counter = defaultdict(int)
         self.flow_per_ip_counter = defaultdict(int)
+        self.start_timer()
+
+    def start_timer(self):
+        self.logger.info("Direcciones IP bloqueadas: ")
+        for ip in self.blocked_ips:
+            self.logger.info(ip)
+        self.logger.info("Puertos fisicos de switch bloqueados: ")
+        for port in self.blocked_ports:
+            self.logger.info(f"Puerto {port}")
+        threading.Timer(15, self.start_timer).start()
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -114,6 +127,7 @@ class CombinedController(app_manager.RyuApp):
         datapath.send_msg(out)
 
         self.logger.info(f"Bloqueando puerto {in_port} por posible ataque de inundacion.")
+        self.blocked_ports[in_port] = True
     
     def block_ip(self, datapath, src_ip):
         parser = datapath.ofproto_parser
@@ -132,7 +146,7 @@ class CombinedController(app_manager.RyuApp):
         datapath.send_msg(out)
 
         self.logger.info(f"Bloqueando direccion IP {src_ip} por posible escaneo de puertos.")
-
+        self.blocked_ips[src_ip] = True
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
