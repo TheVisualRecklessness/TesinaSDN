@@ -21,6 +21,7 @@ class CombinedController(app_manager.RyuApp):
         self.scan_tracker = {}
         self.blocked_ips = {}
         self.blocked_ports = {}
+        self.dps = {}
         self.flow_counter = defaultdict(int)
         self.flow_per_ip_counter = defaultdict(int)
         self.start_timer()
@@ -32,6 +33,7 @@ class CombinedController(app_manager.RyuApp):
         self.logger.info("Puertos fisicos de switch bloqueados: ")
         for port in self.blocked_ports:
             self.logger.info(f"Puerto {port}")
+        self.request_flow_stats()
         threading.Timer(15, self.start_timer).start()
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -43,6 +45,22 @@ class CombinedController(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
+
+    def get_match_field(self, match, field_name):
+        match_dict = match.to_jsondict()['OFPMatch']['oxm_fields']
+        for field in match_dict:
+            if field['OXMTlv']['field'] == field_name:
+                return field['OXMTlv']['value']
+        return None
+    
+    @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, CONFIG_DISPATCHER])
+    def state_change_handler(self, ev):
+        datapath = ev.datapath
+        if ev.state == MAIN_DISPATCHER:
+            self.dps[datapath.id] = datapath
+        elif ev.state == 'DEAD_DISPATCHER':
+            if datapath.id in self.dps:
+                del self.dps[datapath.id]
 
     def get_match_field(self, match, field_name):
         match_dict = match.to_jsondict()['OFPMatch']['oxm_fields']
@@ -87,6 +105,32 @@ class CombinedController(app_manager.RyuApp):
                 self.logger.info(f"Flujo maximo alcanzado para dirección IP {dst_ip}. No se instalan mas flujos.")
                 self.block_port(datapath, 5)
                 return
+    def request_flow_stats(self):
+        for dp in self.dps.values():
+            ofproto = dp.ofproto
+            parser = dp.ofproto_parser
+
+            req = parser.OFPFlowStatsRequest(dp)
+            dp.send_msg(req)
+
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def flow_stats_reply_handler(self, ev):
+        body = ev.msg.body
+
+        self.logger.info('datapath         '
+                        'in-port  eth-dst           '
+                        'out-port packets  bytes')
+        self.logger.info('---------------- '
+                        '-------- ----------------- '
+                        '-------- -------- --------')
+        for stat in sorted([flow for flow in body if flow.priority == 1],
+                        key=lambda flow: (flow.match.get('in_port', -1),
+                                            flow.match.get('eth_dst', ''))):
+            self.logger.info('%016x %8x %17s %8x %8d %8d',
+                            ev.msg.datapath.id,
+                            stat.match.get('in_port', -1), stat.match.get('eth_dst', ''),
+                            stat.instructions[0].actions[0].port,
+                            stat.packet_count, stat.byte_count)
 
     def detect_port_scan(self, src_ip, dst_port):
         current_time = time.time()
