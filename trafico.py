@@ -10,9 +10,11 @@ dst_ip_range = ['10.0.0.1', '10.0.0.2']
 tcp_ports = [20, 21, 22, 23, 25, 80, 110, 143, 443]
 udp_ports = [53, 67, 68, 69, 123, 161, 162, 500]
 
-pkt_threshold = 100
+pkt_threshold = 5
 pkt_count = 0
 traffic_types = ['benign', 'malicious']
+benign_pkts = 0
+malicious_pkts = 0
 
 def benign_traffic(pkt_count):
     dst_ip = '10.0.0.4'
@@ -22,7 +24,7 @@ def benign_traffic(pkt_count):
 
     packet = IP(src=src_ip, dst=dst_ip) / TCP(dport=dst_port, sport=src_port)
     logging.info(f'Enviando paquete: {packet.summary()}')
-    logging.info(f'Paquete No. {pkt_count} enviado.')
+    logging.info(f'Paquete No. {pkt_count} enviado. Tamano: {len(packet)}')
 
     return packet
 
@@ -45,10 +47,16 @@ def generate_random_packet(pkt_count):
     return packet
 
 while pkt_count < pkt_threshold:
-    traffic = random.choice(traffic_types)
+    #traffic = random.choice(traffic_types)
+    traffic = 'malicious'
     if traffic == 'benign':
         pkt = benign_traffic(pkt_count)
+        benign_pkts += 1
     else:
         pkt = generate_random_packet(pkt_count)
+        malicious_pkts += 1
     send(pkt)
     pkt_count += 1
+
+logging.info(f'Paquetes benignos enviados: {benign_pkts}')
+logging.info(f'Paquetes maliciosos enviados: {malicious_pkts}')
