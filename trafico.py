@@ -10,7 +10,7 @@ dst_ip_range = ['10.0.0.1', '10.0.0.2']
 tcp_ports = [20, 21, 22, 23, 25, 80, 110, 143, 443]
 udp_ports = [53, 67, 68, 69, 123, 161, 162, 500]
 
-pkt_threshold = 5
+pkt_threshold = 10
 pkt_count = 0
 traffic_types = ['benign', 'malicious']
 benign_pkts = 0
@@ -47,8 +47,7 @@ def generate_random_packet(pkt_count):
     return packet
 
 while pkt_count < pkt_threshold:
-    #traffic = random.choice(traffic_types)
-    traffic = 'malicious'
+    traffic = random.choice(traffic_types)
     if traffic == 'benign':
         pkt = benign_traffic(pkt_count)
         benign_pkts += 1
