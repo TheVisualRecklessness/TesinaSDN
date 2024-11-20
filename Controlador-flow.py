@@ -118,18 +118,17 @@ class CombinedController(app_manager.RyuApp):
         body = ev.msg.body
 
         self.logger.info('Switch           '
-                        'puerto_switch paquetes  bytes  dst_port')
+                        'host_destino paquetes  dst_port')
         self.logger.info('---------------- '
-                        '------------- -------- -------- --------')
+                        '------------ -------- --------')
         for stat in sorted([flow for flow in body if flow.priority == 1],
                         key=lambda flow: (flow.match.get('in_port', -1),
                                             flow.match.get('eth_dst', ''))):
             dst_port = stat.match.get('tcp_dst', stat.match.get('udp_dst', 'N/A'))
-            self.logger.info('%016x %8x %8d %8d %8s',
+            self.logger.info('%016x %8x %8d %8s',
                             ev.msg.datapath.id,
                             stat.instructions[0].actions[0].port,
-                            stat.packet_count, stat.byte_count,
-                            dst_port)
+                            stat.packet_count+1, dst_port)
 
     def detect_port_scan(self, src_ip, dst_port):
         current_time = time.time()
